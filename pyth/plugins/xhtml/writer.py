@@ -7,7 +7,7 @@ Render documents as XHTML fragments
 from pyth import document
 from pyth.format import PythWriter
 
-from cStringIO import StringIO
+from io import StringIO
 
 
 _tagNames = {
@@ -151,7 +151,7 @@ class Tag(object):
             elif c is _prettyBreak:
                 target.write('\n')
             else:
-                target.write(quoteText(c).encode("utf-8").replace('\n', '<br />'))
+                target.write(quoteText(c).replace('\n', '<br />'))
 
         if self.tag is not None:
             target.write('</%s>' % self.tag)
@@ -160,7 +160,7 @@ class Tag(object):
     def attrString(self):
         return " ".join(
             '%s="%s"' % (k, quoteAttr(v))
-            for (k, v) in self.attrs.iteritems())
+            for (k, v) in self.attrs.items())
             
 
     def __repr__(self):

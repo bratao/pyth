@@ -96,7 +96,7 @@ class Rtf15Reader(PythReader):
     def go(self):
         self.source.seek(0)
 
-        if self.source.read(5) != r"{\rtf":
+        if self.source.read(5).decode('cp1252') != r"{\rtf":
             from pyth.errors import WrongFileType
             raise WrongFileType("Doesn't look like an RTF file")
 
@@ -112,7 +112,7 @@ class Rtf15Reader(PythReader):
 
     def parse(self):
         while True:
-            next = self.source.read(1)
+            next = self.source.read(1).decode()
 
             if not next:
                 break
@@ -152,7 +152,7 @@ class Rtf15Reader(PythReader):
         current = chars
         first = True
         while True:
-            next = self.source.read(1)
+            next = self.source.read(1).decode()
 
             if not next:
                 break
@@ -189,20 +189,19 @@ class Rtf15Reader(PythReader):
 
             current.append(next)
 
-        return "".join(chars), "".join(digits)
+        return "".join(chars), "".join(map(str, digits))
 
 
     def build(self):
         doc = document.Document()
 
         ctx = DocBuilder(doc, self.clean_paragraphs)
-
+        
         for bit in self.group.flatten():
             typeName = type(bit).__name__
             getattr(ctx, "handle_%s" % typeName)(bit)
 
         ctx.flushParagraph()
-
         return doc
 
 
@@ -295,6 +294,9 @@ class DocBuilder(object):
     def handle_unicode(self, bit):
         self.run.append(bit)
 
+    def handle_str(self, bit):
+        self.run.append(bit)
+
 
     def handle_Push(self, _):
         self.propStack.append(self.propStack[-1].copy())
@@ -312,11 +314,11 @@ class DocBuilder(object):
         prevListLevel = self.listLevel
         self.listLevel = para.listLevel
 
-        if self.listLevel > prevListLevel:
+        if self.listLevel is not None and prevListLevel is not None and self.listLevel > prevListLevel:
             l = document.List()
             self.listStack.append(l)
 
-        elif self.listLevel < prevListLevel:
+        elif self.listLevel is not None and prevListLevel is not None and self.listLevel < prevListLevel:
             l = self.listStack.pop()
             self.listStack[-1].append(l)
 
@@ -386,7 +388,7 @@ class Group(object):
 
 
     def flushChars(self):
-        chars = "".join(self.charBuffer).decode(self.charset, self.reader.errors)
+        chars = "".join(self.charBuffer)#.decode(self.charset, self.reader.errors)
         self.content.append(chars)
         self.charBuffer = []
 
@@ -549,7 +551,7 @@ class Group(object):
     def handle_u(self, codepoint):
         codepoint = int(codepoint)
         try:
-            char = unichr(codepoint % 2**16)
+            char = chr(codepoint % 2**16)
         except ValueError:
             if self.reader.errors == 'replace':
                 char = '?'
@@ -675,7 +677,7 @@ class Group(object):
             except:
                 return u""
 
-            match = re.match(ur'HYPERLINK "(.*)"', destination)
+            match = re.match(r'HYPERLINK "(.*)"', destination)
             if match:
                 content.skip = False
                 self.content = [ReadableMarker("url", match.group(1)),
